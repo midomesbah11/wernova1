@@ -74,7 +74,17 @@ export default function Products() {
             img: imgs[0] || ''
           };
         });
-        setProducts(formattedData);
+
+        // Sort: In stock first, then out of stock
+        const sortedData = formattedData.sort((a, b) => {
+          const aOut = a.stock === 0 || (a.sizes_stock && Object.values(a.sizes_stock).every(v => parseInt(v) === 0));
+          const bOut = b.stock === 0 || (b.sizes_stock && Object.values(b.sizes_stock).every(v => parseInt(v) === 0));
+          if (aOut && !bOut) return 1;
+          if (!aOut && bOut) return -1;
+          return 0;
+        });
+
+        setProducts(sortedData);
       }
     } catch (err) {
       console.error("Error fetching products:", err);

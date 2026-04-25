@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Home, Briefcase, CheckCircle2, ChevronLeft, MapPin } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import { useCart } from "../context/CartContext";
+import { wilayasData, algeriaData, wilayasList, getShippingFee, shippingFees } from "../data/algeriaCities";
 
 export default function Checkout() {
   const navigate = useNavigate();
-  
+  const { cartItems, cartTotal, clearCart } = useCart();
+
   // States
   const [formData, setFormData] = useState({
     fullName: "",
@@ -14,23 +17,46 @@ export default function Checkout() {
     baladiya: "",
     address: "",
     addressType: "home", // home or office
-    size: "M"
   });
-  
+
+  // const [shippingRates, setShippingRates] = useState([]); // Removed as per request to use local data
+  const [availableCommunes, setAvailableCommunes] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // Mock product data for standard funnel checkouts
-  const productPrice = 4800; // 4800 DA
-  const deliverySurcharge = 600; // 600 DA
-  const totalPrice = productPrice + deliverySurcharge;
+  // Removed fetchShippingRates as per request to rely entirely on algeriaCities.js
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+
+    if (name === "wilaya") {
+      // Find communes for this wilaya
+      setAvailableCommunes(algeriaData[value] || []);
+      // Reset commune when wilaya changes
+      setFormData(prev => ({ ...prev, baladiya: "" }));
+    }
   };
 
   const setAddressType = (type) => setFormData({ ...formData, addressType: type });
-  const setSize = (size) => setFormData({ ...formData, size });
+
+  // Calculate Product Price
+  const productPrice = cartItems.length > 0 ? cartTotal : 4800;
+
+  // Calculate Shipping Surcharge
+  let deliverySurcharge = formData.addressType === 'home' ? 600 : 400; // Requested Defaults
+
+  if (formData.wilaya) {
+    const feeData = (shippingFees && shippingFees[formData.wilaya]) || null;
+    if (feeData) {
+      const fee = formData.addressType === 'home' ? feeData.home : feeData.office;
+      if (fee !== null && fee !== undefined) {
+        deliverySurcharge = fee;
+      }
+    }
+  }
+
+  const totalPrice = productPrice + deliverySurcharge;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,17 +69,11 @@ export default function Checkout() {
           {
             full_name: formData.fullName,
             phone: formData.phone,
-            wilaya: formData.wilaya,
+            wilaya: `${formData.wilaya} - ${wilayasData[formData.wilaya]}`,
             commune: formData.baladiya,
             address: formData.address,
             total: totalPrice,
-            items: [
-              {
-                name: "Wearly Piece",
-                size: formData.size,
-                quantity: 1
-              }
-            ],
+            items: cartItems.length > 0 ? cartItems : [{ name: "Wearly Piece", size: "M", quantity: 1, price: 4800 }],
             status: 'pending',
             shipping_fee: deliverySurcharge,
             delivery_type: formData.addressType
@@ -62,8 +82,9 @@ export default function Checkout() {
 
       if (error) throw error;
 
+      clearCart();
       setIsSuccess(true);
-      
+
     } catch (error) {
       console.error("Error submitting order:", error);
       alert("حدث خطأ أثناء إرسال الطلب: " + (error?.message || "الرجاء المحاولة مجدداً."));
@@ -81,8 +102,8 @@ export default function Checkout() {
           <p className="text-neutral-300 font-medium leading-relaxed mb-8">
             تم استلام طلبك بنجاح، فريقنا سيقوم بالاتصال بك لتأكيد الطلب قريباً.
           </p>
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             className="w-full bg-[#38bdf8] text-black font-extrabold py-4 rounded-2xl hover:bg-[#7dd3fc] transition-colors"
           >
             العودة للرئيسية
@@ -93,58 +114,43 @@ export default function Checkout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] font-['Inter'] pb-20 pt-8 px-4" dir="rtl">
-      
+    <div className="min-h-screen bg-[#0a0a0a] font-['Inter'] pt-20 md:pt-24 pb-24 px-4" dir="rtl">
+
       {/* Header */}
-      <div className="max-w-md mx-auto flex items-center mb-10 w-full relative">
-        <button onClick={() => navigate(-1)} className="absolute right-0 text-white p-2 bg-white/5 rounded-full">
+      <div className="max-w-md mx-auto flex items-center mb-8 w-full relative animate-[floatUp_0.6s_var(--ease-smooth)_forwards]">
+        <button 
+          onClick={() => navigate(-1)} 
+          className="absolute right-0 text-[#a0a0a0] hover:text-white transition-colors p-2 bg-white/5 hover:bg-white/10 rounded-full"
+        >
           <ChevronLeft className="w-5 h-5 rotate-180" />
         </button>
-        <h1 className="text-2xl font-extrabold text-white text-center w-full uppercase tracking-widest">إتمام الطلب</h1>
+        <h1 className="text-xl md:text-2xl font-extrabold text-white text-center w-full uppercase tracking-widest pt-1">إتمام الطلب</h1>
       </div>
 
-      <div className="max-w-md mx-auto w-full">
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <div className="max-w-md mx-auto w-full animate-[floatUp_0.8s_var(--ease-smooth)_forwards]">
+        <div className="bg-[#111111] border border-white/10 rounded-[32px] p-5 md:p-8">
+          <h2 className="text-xl md:text-2xl font-extrabold text-white mb-6 md:mb-8">بيانات الاستلام</h2>
           
-          {/* Sizes Selection */}
-          <div className="bg-[#1a1a1a] rounded-[24px] p-6 border border-white/5">
-            <h3 className="text-white font-bold mb-4 font-['Bebas_Neue'] tracking-wider text-xl uppercase text-left" dir="ltr">Select Size</h3>
-            <div className="flex gap-4 justify-center" dir="ltr">
-              {['S', 'M', 'L', 'XL'].map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setSize(s)}
-                  className={`w-14 h-14 rounded-full font-bold text-lg transition-all border-2 ${
-                    formData.size === s 
-                      ? 'bg-[#f59e0b] border-[#f59e0b] text-black' 
-                      : 'bg-transparent border-white/20 text-white hover:border-[#f59e0b]'
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5 md:gap-6">
 
-          {/* User Info Form */}
-          <div className="bg-[#1a1a1a] rounded-[24px] p-6 border border-white/5 flex flex-col gap-4">
-            <h3 className="text-white font-bold mb-2">معلومات التوصيل</h3>
-            
-            <input 
-              type="text" 
+            {/* User Info Form */}
+            <div className="bg-[#1a1a1a] rounded-[24px] p-5 md:p-6 border border-white/5 flex flex-col gap-4">
+              <h3 className="text-white font-bold mb-1">المعلومات الشخصية</h3>
+
+            <input
+              type="text"
               name="fullName"
-              placeholder="الاسم الكامل" 
+              placeholder="الاسم الكامل"
               required
               value={formData.fullName}
               onChange={handleChange}
               className="w-full bg-white text-black font-semibold rounded-2xl py-4 px-5 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] placeholder:font-medium placeholder:text-neutral-500"
             />
-            
-            <input 
-              type="tel" 
+
+            <input
+              type="tel"
               name="phone"
-              placeholder="رقم الهاتف" 
+              placeholder="رقم الهاتف"
               required
               value={formData.phone}
               onChange={handleChange}
@@ -153,43 +159,47 @@ export default function Checkout() {
 
             <div className="flex gap-4">
               <div className="relative w-1/2">
-                <select 
-                  name="wilaya" 
+                <select
+                  name="wilaya"
                   value={formData.wilaya}
                   onChange={handleChange}
                   required
-                  className="w-full bg-white text-black font-semibold rounded-2xl py-4 px-5 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] appearance-none"
+                  className="w-full bg-white text-black font-semibold rounded-2xl py-4 px-5 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] appearance-none cursor-pointer"
                 >
                   <option value="" disabled>الولاية</option>
-                  <option value="Alger">الجزائر (16)</option>
-                  <option value="Oran">وهران (31)</option>
-                  <option value="Blida">البليدة (09)</option>
-                  <option value="Tipaza">تيبازة (42)</option>
+                  {(wilayasList || []).map(code => (
+                    <option key={code} value={code}>{code} - {(wilayasData && wilayasData[code]) || "..."}</option>
+                  ))}
                 </select>
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
                   <MapPin className="w-5 h-5 text-neutral-400" />
                 </div>
               </div>
-              
+
               <div className="relative w-1/2">
-                <select 
-                  name="baladiya" 
+                <select
+                  name="baladiya"
                   value={formData.baladiya}
                   onChange={handleChange}
                   required
-                  className="w-full bg-white text-black font-semibold rounded-2xl py-4 px-5 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] appearance-none"
+                  disabled={!formData.wilaya || availableCommunes.length === 0}
+                  className="w-full bg-white text-black font-semibold rounded-2xl py-4 px-5 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] appearance-none disabled:opacity-50 cursor-pointer"
                 >
                   <option value="" disabled>البلدية</option>
-                  <option value="Centre">المركز</option>
-                  <option value="Est">الشرق</option>
-                  <option value="Ouest">الغرب</option>
+                  {availableCommunes.map((c, i) => (
+                    <option key={i} value={c}>{c}</option>
+                  ))}
+                  {/* Fallback if user wants to type or if no communes available */}
+                  {availableCommunes.length === 0 && formData.wilaya && (
+                    <option value={wilayasData[formData.wilaya]}>المركز ({wilayasData[formData.wilaya]})</option>
+                  )}
                 </select>
               </div>
             </div>
 
-            <textarea 
+            <textarea
               name="address"
-              placeholder="العنوان بالتفصيل (الحي، الشارع...)" 
+              placeholder="العنوان بالتفصيل (الحي، الشارع...)"
               required
               value={formData.address}
               onChange={handleChange}
@@ -201,24 +211,36 @@ export default function Checkout() {
               <button
                 type="button"
                 onClick={() => setAddressType('home')}
-                className={`flex-1 flex justify-center items-center gap-2 py-4 rounded-2xl font-bold transition-colors ${
-                  formData.addressType === 'home' 
-                    ? 'bg-[#38bdf8] text-black' 
-                    : 'bg-transparent border-2 border-white/10 text-white'
-                }`}
+                className={`flex-1 flex flex-col justify-center items-center gap-1 py-4 rounded-2xl font-bold transition-all ${formData.addressType === 'home'
+                    ? 'bg-[#38bdf8] text-black border-2 border-[#38bdf8] shadow-[0_0_15px_rgba(56,189,248,0.3)]'
+                    : 'bg-transparent border-2 border-white/10 text-white hover:border-[#38bdf8]/50'
+                  }`}
               >
-                <Home className="w-4 h-4" /> المنزل
+                <div className="flex items-center gap-2">
+                  <Home className="w-5 h-5" /> المنزل
+                </div>
+                <span className="text-xs opacity-80">
+                  {formData.wilaya && shippingFees[formData.wilaya]?.home
+                    ? `${shippingFees[formData.wilaya].home} DA`
+                    : "600 DA"}
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => setAddressType('office')}
-                className={`flex-1 flex justify-center items-center gap-2 py-4 rounded-2xl font-bold transition-colors ${
-                  formData.addressType === 'office' 
-                    ? 'bg-[#38bdf8] text-black' 
-                    : 'bg-transparent border-2 border-white/10 text-white'
-                }`}
+                className={`flex-1 flex flex-col justify-center items-center gap-1 py-4 rounded-2xl font-bold transition-all ${formData.addressType === 'office'
+                    ? 'bg-[#38bdf8] text-black border-2 border-[#38bdf8] shadow-[0_0_15px_rgba(56,189,248,0.3)]'
+                    : 'bg-transparent border-2 border-white/10 text-white hover:border-[#38bdf8]/50'
+                  }`}
               >
-                <Briefcase className="w-4 h-4" /> المكتب
+                <div className="flex items-center gap-2">
+                  <Briefcase className="w-5 h-5" /> المكتب
+                </div>
+                <span className="text-xs opacity-80">
+                  {formData.wilaya && shippingFees[formData.wilaya]?.office
+                    ? `${shippingFees[formData.wilaya].office} DA`
+                    : "400 DA"}
+                </span>
               </button>
             </div>
           </div>
@@ -236,27 +258,32 @@ export default function Checkout() {
                 <span className="font-bold text-white" dir="ltr">{deliverySurcharge} DA</span>
               </div>
             </div>
-            
+
             <hr className="border-white/10 my-4" />
 
             <div className="flex justify-between items-center text-xl">
-              <span className="font-extrabold text-white">المجموع الإجمالي</span>
+              <span className="font-extrabold text-white">المجموع الكلي</span>
               <span className="font-extrabold text-[#38bdf8]" dir="ltr">{totalPrice} DA</span>
             </div>
           </div>
 
           {/* Submit Button */}
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={isSubmitting}
-            className="w-full bg-[#38bdf8] text-[#0a0a0a] font-extrabold text-xl py-5 rounded-[24px] hover:bg-[#7dd3fc] transition-colors mt-4 disabled:opacity-70 disabled:hover:bg-[#38bdf8]"
+            className="w-full bg-[#38bdf8] text-[#0a0a0a] font-extrabold text-xl py-5 rounded-[24px] hover:bg-[#7dd3fc] transition-colors mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
           >
-            {isSubmitting ? 'جاري الإرسال (Processing)...' : 'إتمام الطلب الآن'}
+            {isSubmitting ? (
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 border-2 border-black border-r-transparent rounded-full animate-spin"></div>
+                <span>جاري الإرسال...</span>
+              </div>
+            ) : 'تأكيد الطلب الآن'}
           </button>
-          
+
         </form>
       </div>
-
     </div>
+  </div>
   );
 }

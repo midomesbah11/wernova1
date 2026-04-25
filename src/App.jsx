@@ -15,6 +15,7 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
 import ProductsAdmin from "./pages/admin/Products";
 import Orders from "./pages/admin/Orders";
+import Shipping from "./pages/admin/Shipping";
 
 const PublicLayout = () => (
   <div className="flex flex-col min-h-screen w-full">
@@ -52,6 +53,7 @@ export default function App() {
               <Route index element={<Dashboard />} />
               <Route path="products" element={<ProductsAdmin />} />
               <Route path="orders" element={<Orders />} />
+              <Route path="shipping" element={<Shipping />} />
             </Route>
           </Routes>
         </BrowserRouter>

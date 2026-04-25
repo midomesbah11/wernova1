@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Home, Briefcase, MapPin, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Home, Briefcase, MapPin, CheckCircle2, User, Phone as PhoneIcon } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 
 // Import local products just for the fallback mock
 import { products as localProducts } from "../data/products";
+import { wilayasData, algeriaData, wilayasList, shippingFees } from "../data/algeriaCities";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -28,6 +29,10 @@ export default function ProductDetail() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [availableCommunes, setAvailableCommunes] = useState([]);
+  const [selectedColor, setSelectedColor] = useState("");
+
+  const wilayasListLocal = Object.keys(wilayasData || {}).sort();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -83,7 +88,13 @@ export default function ProductDetail() {
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+
+    if (name === "wilaya") {
+      setAvailableCommunes(algeriaData[value] || []);
+      setFormData(prev => ({ ...prev, baladiya: "" }));
+    }
   };
   const setAddressType = (type) => setFormData({ ...formData, addressType: type });
 
@@ -97,9 +108,17 @@ export default function ProductDetail() {
     setIsSubmitting(true);
 
     try {
-      // Calculate derived total
       const priceValue = typeof product.price === 'string' ? parseFloat(product.price.replace(/,/g, '')) : product.price;
-      const deliverySurcharge = 600;
+      
+      // Calculate Shipping Surcharge
+      let deliverySurcharge = formData.addressType === 'home' ? 600 : 400; // Defaults
+      if (formData.wilaya) {
+        const feeData = shippingFees[formData.wilaya];
+        if (feeData) {
+          deliverySurcharge = formData.addressType === 'home' ? (feeData.home || 600) : (feeData.office || 400);
+        }
+      }
+
       const totalPrice = priceValue + deliverySurcharge;
 
       const { error } = await supabase
@@ -108,16 +127,18 @@ export default function ProductDetail() {
           {
             full_name: formData.fullName,
             phone: formData.phone,
-            wilaya: formData.wilaya,
+            wilaya: `${formData.wilaya} - ${wilayasData[formData.wilaya]}`,
             commune: formData.baladiya,
             address: formData.address,
             total: totalPrice,
             items: [
               {
-                id: typeof product.id === 'string' ? product.id : null,
+                id: product.id,
                 name: product.name,
                 size: selectedSize,
-                quantity: 1
+                color: selectedColor || (product.colors && product.colors[0]) || "",
+                quantity: 1,
+                price: priceValue
               }
             ],
             status: 'pending',
@@ -180,27 +201,38 @@ export default function ProductDetail() {
 
   // Derive price logic for presentation
   const priceValue = typeof product.price === 'string' ? parseFloat(product.price.replace(/,/g, '')) : product.price;
-  const deliverySurcharge = 600;
+  let deliverySurcharge = formData.addressType === 'home' ? 600 : 400; // Defaults
+  if (formData.wilaya && shippingFees[formData.wilaya]) {
+    deliverySurcharge = formData.addressType === 'home' 
+      ? (shippingFees[formData.wilaya].home || 600) 
+      : (shippingFees[formData.wilaya].office || 400);
+  }
   const totalPrice = priceValue + deliverySurcharge;
 
+  // Determine available sizes in standard order
+  const STANDARD_SIZES = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+  const availableSizes = product.sizes_stock 
+    ? STANDARD_SIZES.filter(size => parseInt(product.sizes_stock[size] || 0) > 0)
+    : STANDARD_SIZES; // Fallback to all if sizes_stock is missing
+
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pt-24 pb-24 font-['Inter']">
+    <div className="min-h-screen bg-[#0a0a0a] pt-20 md:pt-24 pb-24 font-['Inter']">
       <div className="max-w-md mx-auto px-4 w-full">
 
         {/* Back navigation */}
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-[#a0a0a0] hover:text-[#38bdf8] mb-10 transition-colors py-2 text-sm tracking-widest font-bold uppercase group"
+          className="flex items-center gap-1.5 text-[#a0a0a0] hover:text-[#38bdf8] mb-4 md:mb-10 transition-colors py-1 text-xs tracking-widest font-bold uppercase group"
         >
-          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+          <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
           العودة
         </button>
 
         {/* --- Product Detail Section --- */}
-        <div className="flex flex-col animate-[floatUp_0.8s_var(--ease-smooth)_forwards] mb-10">
+        <div className="flex flex-col animate-[floatUp_0.8s_var(--ease-smooth)_forwards] mb-6 md:mb-10">
 
           {/* Image Slider */}
-          <div className="w-full aspect-[4/5] bg-[#1a1a1a] border border-white/10 relative overflow-hidden rounded-[24px] mb-6 group">
+          <div className="w-full aspect-square md:aspect-[4/5] max-h-[50vh] bg-[#1a1a1a] border border-white/10 relative overflow-hidden rounded-[24px] mb-4 md:mb-6 group">
             {product.images && product.images.length > 0 ? (
               <>
                 <img
@@ -235,41 +267,45 @@ export default function ProductDetail() {
 
           {/* Product Data */}
           <div className="text-white flex flex-col" dir="rtl">
-            <div className="flex justify-between items-center mb-2">
-              <h1 className="text-2xl font-extrabold tracking-tight uppercase" dir="ltr">
+            <div className="flex justify-between items-center mb-1 md:mb-2">
+              <h1 className="text-xl md:text-2xl font-extrabold tracking-tight uppercase" dir="ltr">
                 {product.name}
               </h1>
-              <span className="text-xl text-[#38bdf8] font-extrabold bg-[#38bdf8]/10 px-3 py-1 rounded-full" dir="ltr">
+              <span className="text-lg md:text-xl text-[#38bdf8] font-extrabold bg-[#38bdf8]/10 px-3 py-1 rounded-full" dir="ltr">
                 {priceValue} DA
               </span>
             </div>
 
-            <p className="text-neutral-400 text-sm leading-relaxed mt-1">
+            <p className="text-neutral-400 text-xs md:text-sm leading-relaxed mt-0.5 md:mt-1">
               {product.description || "قطعة مميزة بتصميم Streetwear حصري وعصري، مصممة لتمنحك الراحة الكاملة والمظهر المتفرد. اطلبها الآن واستمتع بتجربة الجودة."}
             </p>
           </div>
         </div>
 
         {/* --- Embedded Checkout Form Component --- */}
-        <div className="bg-[#111111] border border-white/10 rounded-[32px] p-5 md:p-8 w-full" dir="rtl">
-          <h2 className="text-2xl font-extrabold text-white mb-8">أكمل طلبك الآن</h2>
+        <div className="bg-[#111111] border border-white/10 rounded-[32px] p-4 md:p-8 w-full" dir="rtl">
+          <h2 className="text-xl md:text-2xl font-extrabold text-white mb-5 md:mb-8">أكمل طلبك الآن</h2>
           
-          <form onSubmit={handleCheckoutSubmit} className="flex flex-col gap-6">
+          <form onSubmit={handleCheckoutSubmit} className="flex flex-col gap-4 md:gap-6">
 
             {/* User Info Form */}
-            <div className="bg-[#1a1a1a] rounded-[24px] p-6 border border-white/5 flex flex-col gap-4">
-              <h3 className="text-white font-bold mb-2">معلومات التوصيل</h3>
+            <div className="bg-[#1a1a1a] rounded-[24px] p-4 md:p-6 border border-white/5 flex flex-col gap-3 md:gap-4">
+              <h3 className="text-white font-bold mb-1">معلومات التوصيل</h3>
 
-              <input
-                type="text"
+              <div className="relative">
+                <input
+                  type="text"
                   name="fullName"
                   placeholder="الاسم الكامل"
                   required
                   value={formData.fullName}
                   onChange={handleChange}
-                  className="w-full bg-white text-black font-semibold rounded-2xl py-4 px-5 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] placeholder:font-medium placeholder:text-neutral-500"
+                  className="w-full bg-white text-black font-semibold rounded-[2rem] py-4 px-12 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] placeholder:font-medium placeholder:text-neutral-500"
                 />
+                <User className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+              </div>
 
+              <div className="relative">
                 <input
                   type="tel"
                   name="phone"
@@ -277,29 +313,74 @@ export default function ProductDetail() {
                   required
                   value={formData.phone}
                   onChange={handleChange}
-                  className="w-full bg-white text-black font-semibold rounded-2xl py-4 px-5 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] placeholder:font-medium placeholder:text-neutral-500 text-right"
+                  className="w-full bg-white text-black font-semibold rounded-[2rem] py-4 px-12 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] placeholder:font-medium placeholder:text-neutral-500 text-right"
+                  dir="ltr"
                 />
+                <PhoneIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+              </div>
 
                 {/* Size Selection inside Checkout Form */}
                 <div className="flex flex-col gap-3 mt-2">
                   <span className="text-white font-bold text-sm text-right w-full block">اختر المقاس:</span>
-                  <div className="flex flex-wrap gap-3 justify-end">
-                    {['XXL', 'XL', 'L', 'M', 'S'].map((size) => (
-                      <button
-                        key={size}
-                        type="button"
-                        onClick={() => setSelectedSize(size)}
-                        className={`w-14 h-14 rounded-xl font-bold text-lg transition-all border-2 flex items-center justify-center ${selectedSize === size
-                            ? "bg-[#38bdf8] border-[#38bdf8] text-black shadow-[0_0_15px_rgba(56,189,248,0.5)]"
-                            : "bg-white/5 border-white/10 text-white hover:border-[#38bdf8]/50 hover:bg-white/10"
-                          }`}
-                        dir="ltr"
-                      >
-                        {size}
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-3 md:grid-cols-6 gap-3" dir="ltr">
+                    {availableSizes.length > 0 ? (
+                      availableSizes.map((size) => (
+                        <button
+                          key={size}
+                          type="button"
+                          onClick={() => setSelectedSize(size)}
+                          className={`w-14 h-14 rounded-full font-bold text-lg transition-all border-2 flex items-center justify-center ${selectedSize === size
+                              ? "bg-[#facc15] border-[#facc15] text-black shadow-[0_0_15px_rgba(250,204,21,0.5)] scale-110"
+                              : "bg-white/5 border-white/10 text-white hover:border-[#facc15]/50 hover:bg-white/10"
+                            }`}
+                        >
+                          {size}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="col-span-full text-red-400 text-center py-4 bg-red-400/10 rounded-xl font-bold border border-red-400/20" dir="rtl">
+                        نفدت جميع المقاسات (SOLD OUT)
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Color Selection */}
+                {product.colors && product.colors.length > 0 && (
+                  <div className="flex flex-col gap-4 mt-2">
+                    <span className="text-white font-bold text-sm text-right w-full block">اختر اللون:</span>
+                    <div className="flex flex-wrap gap-3 justify-end">
+                      {(product.variants && product.variants.length > 0 
+                        ? product.variants.filter(v => parseInt(v.stock || 0) > 0).map(v => v.color)
+                        : (product.colors || [])
+                      ).map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => setSelectedColor(color)}
+                          className={`w-10 h-10 rounded-full transition-all border-2 ${selectedColor === color
+                              ? "border-white scale-110 shadow-[0_0_15px_rgba(255,255,255,0.6)]"
+                              : "border-white/10 hover:border-white/50"
+                            }`}
+                          style={{ backgroundColor: color.toLowerCase() }}
+                          title={color}
+                        />
+                      ))}
+                    </div>
+
+                    {selectedColor && (
+                      <div className="flex flex-col items-center gap-3 mt-2 animate-fade-in">
+                        <span className="text-white font-bold text-sm">
+                          اللون المختار: اللون {selectedColor}
+                        </span>
+                        <div 
+                          className="w-16 h-16 rounded-full border-4 border-white shadow-[0_0_20px_rgba(255,255,255,0.4)] transition-all duration-500"
+                          style={{ backgroundColor: selectedColor.toLowerCase() }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex gap-4">
                   <div className="relative w-1/2">
@@ -311,10 +392,9 @@ export default function ProductDetail() {
                       className="w-full bg-white text-black font-semibold rounded-2xl py-4 px-5 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] appearance-none cursor-pointer"
                     >
                       <option value="" disabled>الولاية</option>
-                      <option value="Alger">الجزائر (16)</option>
-                      <option value="Oran">وهران (31)</option>
-                      <option value="Blida">البليدة (09)</option>
-                      <option value="Tipaza">تيبازة (42)</option>
+                      {wilayasListLocal.map(code => (
+                        <option key={code} value={code}>{code} - {wilayasData[code]}</option>
+                      ))}
                     </select>
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
                       <MapPin className="w-5 h-5 text-neutral-400" />
@@ -327,12 +407,16 @@ export default function ProductDetail() {
                       value={formData.baladiya}
                       onChange={handleChange}
                       required
-                      className="w-full bg-white text-black font-semibold rounded-2xl py-4 px-5 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] appearance-none cursor-pointer"
+                      disabled={!formData.wilaya || availableCommunes.length === 0}
+                      className="w-full bg-white text-black font-semibold rounded-2xl py-4 px-5 focus:outline-none focus:ring-2 focus:ring-[#38bdf8] appearance-none cursor-pointer disabled:opacity-50"
                     >
                       <option value="" disabled>البلدية</option>
-                      <option value="Centre">المركز</option>
-                      <option value="Est">الشرق</option>
-                      <option value="Ouest">الغرب</option>
+                      {availableCommunes.map((c, i) => (
+                        <option key={i} value={c}>{c}</option>
+                      ))}
+                      {availableCommunes.length === 0 && formData.wilaya && (
+                        <option value={wilayasData[formData.wilaya]}>المركز ({wilayasData[formData.wilaya]})</option>
+                      )}
                     </select>
                   </div>
                 </div>
@@ -351,22 +435,36 @@ export default function ProductDetail() {
                   <button
                     type="button"
                     onClick={() => setAddressType('home')}
-                    className={`flex-1 flex justify-center items-center gap-2 py-4 rounded-2xl font-bold transition-colors ${formData.addressType === 'home'
-                        ? 'bg-[#38bdf8] text-black'
+                    className={`flex-1 flex flex-col justify-center items-center gap-1 py-4 rounded-2xl font-bold transition-all ${formData.addressType === 'home'
+                        ? 'bg-[#38bdf8] text-black border-2 border-[#38bdf8]'
                         : 'bg-transparent border-2 border-white/10 text-white hover:border-[#38bdf8]/50'
                       }`}
                   >
-                    <Home className="w-5 h-5" /> المنزل
+                    <div className="flex items-center gap-2">
+                      <Home className="w-5 h-5" /> المنزل
+                    </div>
+                    <span className="text-xs opacity-80">
+                      {formData.wilaya && shippingFees[formData.wilaya]?.home 
+                        ? `${shippingFees[formData.wilaya].home} DA` 
+                        : "600 DA"}
+                    </span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setAddressType('office')}
-                    className={`flex-1 flex justify-center items-center gap-2 py-4 rounded-2xl font-bold transition-colors ${formData.addressType === 'office'
-                        ? 'bg-[#38bdf8] text-black'
+                    className={`flex-1 flex flex-col justify-center items-center gap-1 py-4 rounded-2xl font-bold transition-all ${formData.addressType === 'office'
+                        ? 'bg-[#38bdf8] text-black border-2 border-[#38bdf8]'
                         : 'bg-transparent border-2 border-white/10 text-white hover:border-[#38bdf8]/50'
                       }`}
                   >
-                    <Briefcase className="w-5 h-5" /> المكتب
+                    <div className="flex items-center gap-2">
+                      <Briefcase className="w-5 h-5" /> المكتب
+                    </div>
+                    <span className="text-xs opacity-80">
+                      {formData.wilaya && shippingFees[formData.wilaya]?.office 
+                        ? `${shippingFees[formData.wilaya].office} DA` 
+                        : "400 DA"}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -396,15 +494,21 @@ export default function ProductDetail() {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-[#38bdf8] text-[#0a0a0a] font-extrabold text-xl py-5 rounded-[24px] hover:bg-[#7dd3fc] transition-colors mt-4 disabled:opacity-70 flex justify-center items-center"
+                disabled={isSubmitting || !selectedSize}
+                className="w-full bg-[#38bdf8] text-[#0a0a0a] font-extrabold text-xl py-6 rounded-[2rem] hover:bg-[#7dd3fc] transition-all mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-between items-center px-8 shadow-[0_10px_20px_rgba(56,189,248,0.2)] hover:shadow-[0_15px_30px_rgba(56,189,248,0.4)] active:scale-95"
               >
                 {isSubmitting ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 border-2 border-black border-r-transparent rounded-full animate-spin"></div>
-                    <span>جاري الإرسال...</span>
+                  <div className="flex items-center gap-2 w-full justify-center">
+                    <div className="w-6 h-6 border-3 border-black border-r-transparent rounded-full animate-spin"></div>
+                    <span>جاري إرسال الطلب...</span>
                   </div>
-                ) : 'إتمام الطلب الآن'}
+                ) : (
+                  <>
+                    <span className="text-lg opacity-80" dir="ltr">{totalPrice} DA</span>
+                    <span className="flex-1 text-center">تأكيد الطلب الآن</span>
+                    <ArrowLeft className="w-6 h-6 rotate-180" />
+                  </>
+                )}
               </button>
 
             </form>
