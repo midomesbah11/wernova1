@@ -16,7 +16,6 @@ export default function AdminLayout() {
     { name: "Dashboard", path: "/admin", icon: LayoutDashboard },
     { name: "Products", path: "/admin/products", icon: Package },
     { name: "Orders", path: "/admin/orders", icon: ShoppingCart },
-    { name: "Shipping", path: "/admin/shipping", icon: Settings },
   ];
 
   return (

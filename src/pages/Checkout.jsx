@@ -63,24 +63,69 @@ export default function Checkout() {
     setIsSubmitting(true);
 
     try {
+      const orderData = {
+        full_name: formData.fullName,
+        phone: formData.phone,
+        wilaya: `${formData.wilaya} - ${wilayasData[formData.wilaya]}`,
+        commune: formData.baladiya,
+        address: formData.address,
+        total: totalPrice,
+        items: cartItems.length > 0 ? cartItems : [{ name: "Wearly Piece", size: "M", quantity: 1, price: 4800 }],
+        status: 'pending',
+        shipping_fee: deliverySurcharge,
+        delivery_type: formData.addressType
+      };
+
       const { error } = await supabase
         .from('orders')
-        .insert([
-          {
-            full_name: formData.fullName,
-            phone: formData.phone,
-            wilaya: `${formData.wilaya} - ${wilayasData[formData.wilaya]}`,
-            commune: formData.baladiya,
-            address: formData.address,
-            total: totalPrice,
-            items: cartItems.length > 0 ? cartItems : [{ name: "Wearly Piece", size: "M", quantity: 1, price: 4800 }],
-            status: 'pending',
-            shipping_fee: deliverySurcharge,
-            delivery_type: formData.addressType
-          }
-        ]);
+        .insert([orderData]);
 
       if (error) throw error;
+
+      // --- Send Telegram Notification via Secure API ---
+      try {
+        const itemsText = orderData.items.map(item => 
+          `📦 *${item.name}*\n📏 الحجم: ${item.size}\n🔢 الكمية: ${item.quantity}\n💰 السعر: ${item.price} DA`
+        ).join('\n\n');
+
+        const message = `
+🔔 *طلب جديد من Wernova!*
+
+👤 *العميل:* ${orderData.full_name}
+📞 *الهاتف:* \`${orderData.phone}\`
+
+📍 *العنوان:*
+- الولاية: ${orderData.wilaya}
+- البلدية: ${orderData.commune}
+- العنوان: ${orderData.address}
+- النوع: ${orderData.delivery_type === 'home' ? '🏠 للمنزل' : '🏢 للمكتب'}
+
+🛒 *المنتجات:*
+${itemsText}
+
+----------------------------
+🚚 التوصيل: ${orderData.shipping_fee} DA
+💵 *المجموع الكلي: ${orderData.total} DA*
+----------------------------
+        `;
+
+        // Get image from the first item
+        const firstItemImage = orderData.items[0]?.images?.[0] || orderData.items[0]?.image_url || orderData.items[0]?.img || null;
+
+        // Call our internal API instead of Telegram directly
+        const apiResponse = await fetch('/api/telegram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, image_url: firstItemImage })
+        });
+
+        if (!apiResponse.ok) {
+          const errorData = await apiResponse.json();
+          console.error("API Telegram Error:", errorData.error);
+        }
+      } catch (tgError) {
+        console.error("Telegram API Request Failed:", tgError);
+      }
 
       clearCart();
       setIsSuccess(true);
@@ -95,19 +140,33 @@ export default function Checkout() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-6 text-white text-center font-['Inter']">
-        <div className="bg-white/10 p-8 rounded-[32px] flex flex-col items-center max-w-sm w-full border border-white/10">
-          <CheckCircle2 className="w-20 h-20 text-[#38bdf8] mb-6" />
-          <h1 className="text-3xl font-extrabold mb-4">شكراً لطلبك!</h1>
-          <p className="text-neutral-300 font-medium leading-relaxed mb-8">
-            تم استلام طلبك بنجاح، فريقنا سيقوم بالاتصال بك لتأكيد الطلب قريباً.
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-6 text-white text-center font-['Inter'] relative overflow-hidden">
+        {/* Background Glows */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#38bdf8]/10 rounded-full blur-[120px] pointer-events-none"></div>
+        
+        <div className="bg-[#111111] p-10 md:p-12 rounded-[40px] flex flex-col items-center max-w-md w-full border border-white/10 shadow-2xl relative z-10 animate-[floatUp_0.8s_var(--ease-smooth)]">
+          <div className="relative mb-8">
+            <div className="absolute inset-0 bg-[#38bdf8]/20 blur-2xl rounded-full animate-pulse"></div>
+            <div className="relative bg-[#38bdf8] p-5 rounded-full shadow-[0_0_30px_rgba(56,189,248,0.4)]">
+              <CheckCircle2 className="w-12 h-12 text-black stroke-[2.5px]" />
+            </div>
+          </div>
+          
+          <h1 className="text-3xl md:text-4xl font-extrabold mb-4 tracking-tighter">طلبك في الطريق! 🚀</h1>
+          
+          <p className="text-neutral-400 font-medium leading-relaxed mb-10 text-lg">
+            تم تسجيل طلبك بنجاح في أنظمتنا. فريق <span className="text-[#38bdf8] font-bold">Wernova</span> سيتواصل معك هاتفياً خلال الساعات القادمة لتأكيد تفاصيل الشحن.
           </p>
-          <Link
-            to="/"
-            className="w-full bg-[#38bdf8] text-black font-extrabold py-4 rounded-2xl hover:bg-[#7dd3fc] transition-colors"
-          >
-            العودة للرئيسية
-          </Link>
+          
+          <div className="w-full flex flex-col gap-4">
+            <Link
+              to="/"
+              className="w-full bg-[#38bdf8] text-black font-extrabold py-5 rounded-2xl hover:bg-[#7dd3fc] transition-all hover:scale-[1.02] active:scale-[0.98] shadow-[0_10px_20px_-10px_rgba(56,189,248,0.5)]"
+            >
+              العودة للتسوق
+            </Link>
+            <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest">Wernova Premium Store</p>
+          </div>
         </div>
       </div>
     );

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Plus, X, UploadCloud, MoreHorizontal, Loader2, CheckCircle2, AlertCircle, Edit2, Trash2 } from "lucide-react";
 import { supabase } from "../../lib/supabaseClient";
 import { ChromePicker } from "react-color";
+import { optimizeCloudinaryUrl } from "../../utils/cloudinary";
 
 export default function Products() {
   const [isSlideOverOpen, setSlideOverOpen] = useState(false);
@@ -42,8 +43,8 @@ export default function Products() {
   };
 
   // Config: Using Environment Variables for Cloudinary
-  const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "your_unsigned_preset"; 
-  const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "your_cloud_name";
+  const CLOUDINARY_UPLOAD_PRESET = (import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "your_unsigned_preset").replace(/['"]/g, ""); 
+  const CLOUDINARY_CLOUD_NAME = (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "your_cloud_name").replace(/['"]/g, "");
 
   // Data States
   const [products, setProducts] = useState([]);
@@ -51,6 +52,10 @@ export default function Products() {
   const [toastMsg, setToastMsg] = useState(null);
 
   useEffect(() => {
+    console.log("Cloudinary Config Loaded:", {
+      cloudName: CLOUDINARY_CLOUD_NAME,
+      uploadPreset: CLOUDINARY_UPLOAD_PRESET
+    });
     fetchProducts();
   }, []);
 
@@ -122,17 +127,14 @@ export default function Products() {
         multiple: true,
         clientAllowedFormats: ["png", "jpeg", "heic", "heif", "webp", "jpg"],
         maxImageFileSize: 10000000,
-        cropping: true,
-        croppingAspectRatio: 4 / 5,
+        cropping: false, // Disabled client-side cropping to support HEIC uploads on all browsers
         defaultSource: "local",
       },
       (error, result) => {
         if (!error && result && result.event === "success") {
           let secureUrl = result.info.secure_url;
-          if (secureUrl.includes('/upload/')) {
-            secureUrl = secureUrl.replace('/upload/', '/upload/f_auto,q_auto/');
-          }
-          setUploadedImages((prev) => [...prev, secureUrl]);
+          const optimizedUrl = optimizeCloudinaryUrl(secureUrl);
+          setUploadedImages((prev) => [...prev, optimizedUrl]);
         }
       }
     );
@@ -283,12 +285,13 @@ export default function Products() {
                     const statusText = item.stock > 10 ? "Active" : (item.stock > 0 ? "Low Stock" : "Out of Stock");
                     const statusColor = item.stock > 10 ? "text-black" : (item.stock > 0 ? "text-orange-500" : "text-red-500");
                     const coverImg = Array.isArray(item.images) && item.images.length > 0 ? item.images[0] : item.img;
+                    const optimizedCoverImg = optimizeCloudinaryUrl(coverImg);
                     
                     return (
                       <tr key={item.id} className="border-b border-neutral-300 hover:bg-neutral-50 transition-colors">
                         <td className="py-4">
                           <div className="flex items-center gap-4">
-                            <img src={coverImg} alt={item.name} className="w-12 h-12 object-cover rounded-none border border-black grayscale-[20%]" />
+                            <img src={optimizedCoverImg} alt={item.name} className="w-12 h-12 object-cover rounded-none border border-black grayscale-[20%]" />
                             <div>
                               <p className="font-bold text-black uppercase tracking-tight">{item.name}</p>
                               <p className="text-xs font-medium text-neutral-500">{String(item.id).substring(0, 8)}... • {item.stock} in stock</p>
@@ -390,7 +393,7 @@ export default function Products() {
               <div className="flex gap-4 overflow-x-auto pb-2">
                 {uploadedImages.map((url, index) => (
                   <div key={index} className="relative w-24 h-24 shrink-0 border border-black bg-white group">
-                    <img src={url} alt={`Preview ${index}`} className="w-full h-full object-cover" />
+                    <img src={optimizeCloudinaryUrl(url)} alt={`Preview ${index}`} className="w-full h-full object-cover" />
                     <button 
                       type="button"
                       onClick={(e) => handleRemoveImage(e, index)}

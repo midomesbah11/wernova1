@@ -1,6 +1,7 @@
 import { useCart } from "../context/CartContext";
 import { X, Minus, Plus, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { optimizeCloudinaryUrl } from "../utils/cloudinary";
 
 export default function CartDrawer() {
   const { isDrawerOpen, setIsDrawerOpen, cartItems, cartTotal, updateQuantity, removeFromCart } = useCart();
@@ -52,7 +53,7 @@ export default function CartDrawer() {
                 {/* Img placeholder */}
                 <div className="w-24 h-32 bg-[#1a1a1a] flex-shrink-0 border border-[#2a2a2a] overflow-hidden">
                   {item.images && item.images[0] ? (
-                    <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
+                    <img src={optimizeCloudinaryUrl(item.images[0])} alt={item.name} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-[10px] text-[#2a2a2a] font-mono p-1 text-center">NO IMG</div>
                   )}

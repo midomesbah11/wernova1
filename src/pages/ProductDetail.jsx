@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Home, Briefcase, MapPin, CheckCircle2, User, Phone as PhoneIcon } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import { optimizeCloudinaryUrl } from "../utils/cloudinary";
 
 // Import local products just for the fallback mock
 import { products as localProducts } from "../data/products";
@@ -121,33 +122,78 @@ export default function ProductDetail() {
 
       const totalPrice = priceValue + deliverySurcharge;
 
+      const orderData = {
+        full_name: formData.fullName,
+        phone: formData.phone,
+        wilaya: `${formData.wilaya} - ${wilayasData[formData.wilaya]}`,
+        commune: formData.baladiya,
+        address: formData.address,
+        total: totalPrice,
+        items: [
+          {
+            id: product.id,
+            name: product.name,
+            size: selectedSize,
+            color: selectedColor || (product.colors && product.colors[0]) || "",
+            quantity: 1,
+            price: priceValue
+          }
+        ],
+        status: 'pending',
+        shipping_fee: deliverySurcharge,
+        delivery_type: formData.addressType
+      };
+
       const { error } = await supabase
         .from('orders')
-        .insert([
-          {
-            full_name: formData.fullName,
-            phone: formData.phone,
-            wilaya: `${formData.wilaya} - ${wilayasData[formData.wilaya]}`,
-            commune: formData.baladiya,
-            address: formData.address,
-            total: totalPrice,
-            items: [
-              {
-                id: product.id,
-                name: product.name,
-                size: selectedSize,
-                color: selectedColor || (product.colors && product.colors[0]) || "",
-                quantity: 1,
-                price: priceValue
-              }
-            ],
-            status: 'pending',
-            shipping_fee: deliverySurcharge,
-            delivery_type: formData.addressType
-          }
-        ]);
+        .insert([orderData]);
 
       if (error) throw error;
+
+      // --- Send Telegram Notification via Secure API ---
+      try {
+        const itemsText = orderData.items.map(item => 
+          `📦 *${item.name}*\n📏 الحجم: ${item.size}${item.color ? `\n🎨 اللون: ${item.color}` : ''}\n🔢 الكمية: ${item.quantity}\n💰 السعر: ${item.price} DA`
+        ).join('\n\n');
+
+        const message = `
+🔔 *طلب جديد من Wernova! (شراء سريع)*
+
+👤 *العميل:* ${orderData.full_name}
+📞 *الهاتف:* \`${orderData.phone}\`
+
+📍 *العنوان:*
+- الولاية: ${orderData.wilaya}
+- البلدية: ${orderData.commune}
+- العنوان: ${orderData.address}
+- النوع: ${orderData.delivery_type === 'home' ? '🏠 للمنزل' : '🏢 للمكتب'}
+
+🛒 *المنتجات:*
+${itemsText}
+
+----------------------------
+🚚 التوصيل: ${orderData.shipping_fee} DA
+💵 *المجموع الكلي: ${orderData.total} DA*
+----------------------------
+        `;
+
+        // Get image from the product
+        const productImage = optimizeCloudinaryUrl(product.images?.[0] || product.image_url || product.img || null);
+
+        // Call our internal API
+        const apiResponse = await fetch('/api/telegram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, image_url: productImage })
+        });
+
+        if (!apiResponse.ok) {
+          const errorData = await apiResponse.json();
+          console.error("API Telegram Error:", errorData.error);
+        }
+      } catch (tgError) {
+        console.error("Telegram API Request Failed:", tgError);
+      }
 
       setIsSuccess(true);
       window.scrollTo(0, 0);
@@ -236,7 +282,7 @@ export default function ProductDetail() {
             {product.images && product.images.length > 0 ? (
               <>
                 <img
-                  src={product.images[currentImageIndex]}
+                  src={optimizeCloudinaryUrl(product.images[currentImageIndex])}
                   alt={product.name}
                   className="w-full h-full object-cover transition-opacity duration-300"
                 />
@@ -258,7 +304,7 @@ export default function ProductDetail() {
               </>
             ) : (
               <img
-                src={product.image_url || "https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&w=500&q=80"}
+                src={optimizeCloudinaryUrl(product.image_url) || "https://images.unsplash.com/photo-1556821840-3a63f95609a7?auto=format&fit=crop&w=500&q=80"}
                 alt={product.name}
                 className="w-full h-full object-cover"
               />

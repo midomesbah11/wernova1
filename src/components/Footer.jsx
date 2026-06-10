@@ -55,7 +55,7 @@ export default function Footer() {
           <a href="#" className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-neutral-400 hover:text-blue-500 hover:border-blue-500 transition-all">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
           </a>
-          <a href="#" className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-neutral-400 hover:text-blue-500 hover:border-blue-500 transition-all">
+          <a href="https://www.instagram.com/wernova.stor?igsh=MXExeXY2cHA4dGRudg%3D%3D" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-neutral-400 hover:text-blue-500 hover:border-blue-500 transition-all">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" /></svg>
           </a>
           <a href="#" className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-neutral-400 hover:text-blue-500 hover:border-blue-500 transition-all font-bold">
@@ -65,13 +65,27 @@ export default function Footer() {
       </div>
 
       {/* Bottom Bar */}
-      <div className="max-w-7xl mx-auto border-t border-white/5 flex flex-col md:flex-row justify-between items-center pt-8 gap-4">
+      <div className="max-w-7xl mx-auto border-t border-white/5 flex flex-col md:flex-row justify-between items-center pt-8 gap-6">
         <p className="text-neutral-600 text-xs uppercase tracking-widest text-center">
           &copy; {new Date().getFullYear()} WERNOVA STORE. All Rights Reserved.
         </p>
-        <p className="text-neutral-500 text-xs">
-          تم التطوير بواسطة <span className="text-blue-500 font-bold">MBH</span>
-        </p>
+        
+        <div className="flex flex-col items-center md:items-end gap-2">
+          <p className="text-neutral-500 text-xs flex items-center gap-1">
+            Developed by <span className="text-[#38bdf8] font-bold text-sm tracking-wider">MBH</span>
+          </p>
+          <div className="flex items-center gap-3 text-neutral-400 text-xs">
+            <a href="mailto:midojf4@gmail.com" className="hover:text-[#38bdf8] transition-colors flex items-center gap-1.5">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              Email Me
+            </a>
+            <span className="text-white/20">|</span>
+            <a href="https://www.instagram.com/mido_mesbah_11/" target="_blank" rel="noopener noreferrer" className="hover:text-[#38bdf8] transition-colors flex items-center gap-1.5">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+              Instagram
+            </a>
+          </div>
+        </div>
       </div>
     </footer>
   );

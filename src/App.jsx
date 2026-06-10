@@ -53,7 +53,7 @@ export default function App() {
               <Route index element={<Dashboard />} />
               <Route path="products" element={<ProductsAdmin />} />
               <Route path="orders" element={<Orders />} />
-              <Route path="shipping" element={<Shipping />} />
+              {/* <Route path="shipping" element={<Shipping />} /> */}
             </Route>
           </Routes>
         </BrowserRouter>

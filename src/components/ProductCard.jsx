@@ -1,6 +1,7 @@
 
 import { Link } from "react-router-dom";
 import { useCart } from "../context/CartContext";
+import { optimizeCloudinaryUrl } from "../utils/cloudinary";
 
 export default function ProductCard({ product }) {
   const { addToCart } = useCart();
@@ -32,7 +33,7 @@ export default function ProductCard({ product }) {
         {/* Image / Placeholder */}
         {product.images && product.images[0] ? (
           <img 
-            src={product.images[0]} 
+            src={optimizeCloudinaryUrl(product.images[0])} 
             alt={product.name}
             loading="lazy"
             className="w-full h-full object-cover text-[#a0a0a0] dm-sans flex items-center justify-center bg-[#111111] group-hover:scale-105 transition-transform duration-[600ms] ease-[var(--ease-smooth)]"
