@@ -4,10 +4,15 @@ import { Home, Briefcase, CheckCircle2, ChevronLeft, MapPin } from "lucide-react
 import { supabase } from "../lib/supabaseClient";
 import { useCart } from "../context/CartContext";
 import { wilayasData, algeriaData, wilayasList, getShippingFee, shippingFees } from "../data/algeriaCities";
+import { trackInitiateCheckout, trackPurchase } from "../utils/pixel";
 
 export default function Checkout() {
   const navigate = useNavigate();
   const { cartItems, cartTotal, clearCart } = useCart();
+
+  useEffect(() => {
+    trackInitiateCheckout(cartTotal);
+  }, []);
 
   // States
   const [formData, setFormData] = useState({
@@ -83,6 +88,7 @@ export default function Checkout() {
       if (error) throw error;
 
       // --- Send Telegram Notification ---
+      trackPurchase(orderData);
       try {
         const itemsText = orderData.items.map(item => 
           `📦 <b>${item.name}</b>\n📏 الحجم: ${item.size}${item.color ? `\n🎨 اللون: ${item.color}` : ''}\n🔢 الكمية: ${item.quantity}\n💰 السعر: ${item.price} DA`

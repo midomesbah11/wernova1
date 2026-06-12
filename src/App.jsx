@@ -1,5 +1,20 @@
-import { useState } from "react";
-import { BrowserRouter, Routes, Route, Outlet } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Outlet, useLocation } from "react-router-dom";
+import { initPixel, trackPageView } from "./utils/pixel";
+
+const PixelTracker = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    initPixel();
+  }, []);
+
+  useEffect(() => {
+    trackPageView();
+  }, [location]);
+
+  return null;
+};
 import { CartProvider } from "./context/CartContext";
 import SplashScreen from "./components/SplashScreen";
 import Navbar from "./components/Navbar";
@@ -37,6 +52,7 @@ export default function App() {
         <SplashScreen onComplete={() => setSplashDone(true)} />
       ) : (
         <BrowserRouter>
+          <PixelTracker />
           <Routes>
             {/* Public Storefront Routes */}
             <Route element={<PublicLayout />}>

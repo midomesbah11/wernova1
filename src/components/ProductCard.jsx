@@ -2,6 +2,7 @@
 import { Link } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { optimizeCloudinaryUrl } from "../utils/cloudinary";
+import { trackAddToCart } from "../utils/pixel";
 
 export default function ProductCard({ product }) {
   const { addToCart } = useCart();
@@ -19,6 +20,7 @@ export default function ProductCard({ product }) {
     }
     
     addToCart(product, sizeToUse, colorToUse);
+    trackAddToCart(product, 1);
   };
 
   const isSoldOut = product.stock === 0 || 

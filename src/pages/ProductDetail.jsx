@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Home, Briefcase, MapPin, CheckCircle2, User, Phone as PhoneIcon, Minus, Plus } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { optimizeCloudinaryUrl } from "../utils/cloudinary";
+import { trackViewContent, trackPurchase } from "../utils/pixel";
 
 // Import local products just for the fallback mock
 import { products as localProducts } from "../data/products";
@@ -73,7 +74,11 @@ export default function ProductDetail() {
 
       if (error) throw error;
 
-      setProduct(data);
+      if (data) {
+        setProduct(data);
+        trackViewContent(data);
+      }
+
       let initSize = "";
       if (data?.sizes_stock && Object.keys(data.sizes_stock).length > 0) {
         initSize = Object.keys(data.sizes_stock).find(s => parseInt(data.sizes_stock[s]) > 0) || Object.keys(data.sizes_stock)[0];
@@ -162,6 +167,7 @@ export default function ProductDetail() {
       if (error) throw error;
 
       // --- Send Telegram Notification ---
+      trackPurchase(orderData);
       try {
         const itemsText = orderData.items.map(item => 
           `📦 <b>${item.name}</b>\n📏 الحجم: ${item.size}${item.color ? `\n🎨 اللون: ${item.color}` : ''}\n🔢 الكمية: ${item.quantity}\n💰 السعر: ${item.price} DA`
