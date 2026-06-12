@@ -50,19 +50,19 @@ export default function Orders() {
 
   const updateOrderStatus = async (orderId, newStatus) => {
     try {
-      /*
       const { error: updateError } = await supabase
         .from('orders')
         .update({ status: newStatus })
         .eq('id', orderId);
 
       if (updateError) throw updateError;
-      */
       
-      // Update local state for mock
+      // Update local state for immediate feedback
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+      showToast("Statut de la commande mis à jour avec succès !");
     } catch (err) {
       console.error("Error updating status:", err);
+      alert("Erreur lors de la mise à jour du statut.");
     }
   };
 

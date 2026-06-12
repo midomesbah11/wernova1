@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Home, Briefcase, MapPin, CheckCircle2, User, Phone as PhoneIcon } from "lucide-react";
+import { ArrowLeft, Home, Briefcase, MapPin, CheckCircle2, User, Phone as PhoneIcon, Minus, Plus } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { optimizeCloudinaryUrl } from "../utils/cloudinary";
 
@@ -31,7 +31,7 @@ export default function ProductDetail() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [availableCommunes, setAvailableCommunes] = useState([]);
-  const [selectedColor, setSelectedColor] = useState("");
+  const [itemSelections, setItemSelections] = useState([{ size: "", color: "" }]);
 
   const wilayasListLocal = Object.keys(wilayasData || {}).sort();
 
@@ -74,9 +74,20 @@ export default function ProductDetail() {
       if (error) throw error;
 
       setProduct(data);
-      if (data?.sizes && Object.keys(data.sizes).length > 0) {
-        setSelectedSize(Object.keys(data.sizes)[0]);
+      let initSize = "";
+      if (data?.sizes_stock && Object.keys(data.sizes_stock).length > 0) {
+        initSize = Object.keys(data.sizes_stock).find(s => parseInt(data.sizes_stock[s]) > 0) || Object.keys(data.sizes_stock)[0];
+      } else if (data?.sizes && Object.keys(data.sizes).length > 0) {
+        initSize = Object.keys(data.sizes)[0];
       }
+      
+      let initColor = "";
+      if (data?.variants && data.variants.length > 0) {
+        initColor = data.variants[0].hex || data.variants[0].color;
+      } else if (data?.colors && data.colors.length > 0) {
+        initColor = data.colors[0];
+      }
+      setItemSelections([{ size: initSize, color: initColor }]);
 
     } catch (error) {
       console.error("Error fetching product:", error);
@@ -101,8 +112,9 @@ export default function ProductDetail() {
 
   const handleCheckoutSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedSize) {
-      alert("الرجاء اختيار المقاس أولاً.");
+    const missingSize = itemSelections.some(sel => !sel.size);
+    if (missingSize) {
+      alert("الرجاء اختيار المقاس لجميع القطع.");
       return;
     }
 
@@ -120,7 +132,8 @@ export default function ProductDetail() {
         }
       }
 
-      const totalPrice = priceValue + deliverySurcharge;
+      const quantity = itemSelections.length;
+      const totalPrice = (priceValue * quantity) + deliverySurcharge;
 
       const orderData = {
         full_name: formData.fullName,
@@ -129,16 +142,14 @@ export default function ProductDetail() {
         commune: formData.baladiya,
         address: formData.address,
         total: totalPrice,
-        items: [
-          {
-            id: product.id,
-            name: product.name,
-            size: selectedSize,
-            color: selectedColor || (product.colors && product.colors[0]) || "",
-            quantity: 1,
-            price: priceValue
-          }
-        ],
+        items: itemSelections.map(sel => ({
+          id: product.id,
+          name: product.name,
+          size: sel.size,
+          color: sel.color || "",
+          quantity: 1,
+          price: priceValue
+        })),
         status: 'pending',
         shipping_fee: deliverySurcharge,
         delivery_type: formData.addressType
@@ -253,7 +264,26 @@ ${itemsText}
       ? (shippingFees[formData.wilaya].home || 600) 
       : (shippingFees[formData.wilaya].office || 400);
   }
-  const totalPrice = priceValue + deliverySurcharge;
+  const quantity = itemSelections.length;
+  const totalPrice = (priceValue * quantity) + deliverySurcharge;
+
+  const updateSelection = (index, field, value) => {
+    setItemSelections(prev => {
+      const newSelections = [...prev];
+      newSelections[index] = { ...newSelections[index], [field]: value };
+      return newSelections;
+    });
+  };
+
+  const handleIncreaseQuantity = () => {
+    setItemSelections(prev => [...prev, { size: prev[0].size, color: prev[0].color }]);
+  };
+
+  const handleDecreaseQuantity = () => {
+    if (itemSelections.length > 1) {
+      setItemSelections(prev => prev.slice(0, prev.length - 1));
+    }
+  };
 
   // Determine available sizes in standard order
   const STANDARD_SIZES = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
@@ -365,68 +395,94 @@ ${itemsText}
                 <PhoneIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
               </div>
 
-                {/* Size Selection inside Checkout Form */}
-                <div className="flex flex-col gap-3 mt-2">
-                  <span className="text-white font-bold text-sm text-right w-full block">اختر المقاس:</span>
-                  <div className="grid grid-cols-3 md:grid-cols-6 gap-3" dir="ltr">
-                    {availableSizes.length > 0 ? (
-                      availableSizes.map((size) => (
-                        <button
-                          key={size}
-                          type="button"
-                          onClick={() => setSelectedSize(size)}
-                          className={`w-14 h-14 rounded-full font-bold text-lg transition-all border-2 flex items-center justify-center ${selectedSize === size
-                              ? "bg-[#facc15] border-[#facc15] text-black shadow-[0_0_15px_rgba(250,204,21,0.5)] scale-110"
-                              : "bg-white/5 border-white/10 text-white hover:border-[#facc15]/50 hover:bg-white/10"
-                            }`}
-                        >
-                          {size}
-                        </button>
-                      ))
-                    ) : (
-                      <div className="col-span-full text-red-400 text-center py-4 bg-red-400/10 rounded-xl font-bold border border-red-400/20" dir="rtl">
-                        نفدت جميع المقاسات (SOLD OUT)
+                {/* Per-Item Selection (Size and Color) */}
+                <div className="flex flex-col gap-4 mt-4">
+                  <span className="text-white font-bold text-lg text-right w-full block border-b border-white/10 pb-2">تحديد القطع المضافة ({itemSelections.length})</span>
+                  
+                  {itemSelections.map((sel, idx) => (
+                    <div key={idx} className="flex flex-col gap-4 p-5 border border-white/10 rounded-2xl bg-[#222] shadow-inner relative">
+                      {itemSelections.length > 1 && (
+                        <div className="absolute top-0 right-4 -translate-y-1/2 bg-[#38bdf8] text-black font-extrabold text-xs px-3 py-1 rounded-full">
+                          القطعة {idx + 1}
+                        </div>
+                      )}
+                      
+                      {/* Size Selection */}
+                      <div className="flex flex-col gap-2">
+                        <span className="text-neutral-400 font-bold text-xs text-right w-full block">اختر المقاس:</span>
+                        <div className="flex flex-wrap gap-2 justify-end" dir="ltr">
+                          {availableSizes.length > 0 ? (
+                            availableSizes.map((size) => (
+                              <button
+                                key={size}
+                                type="button"
+                                onClick={() => updateSelection(idx, 'size', size)}
+                                className={`w-12 h-12 rounded-full font-bold text-base transition-all border-2 flex items-center justify-center ${sel.size === size
+                                    ? "bg-[#facc15] border-[#facc15] text-black shadow-[0_0_10px_rgba(250,204,21,0.5)] scale-110"
+                                    : "bg-white/5 border-white/10 text-white hover:border-[#facc15]/50"
+                                  }`}
+                              >
+                                {size}
+                              </button>
+                            ))
+                          ) : (
+                            <div className="w-full text-red-400 text-center py-2 bg-red-400/10 rounded-xl font-bold border border-red-400/20 text-xs" dir="rtl">
+                              نفدت جميع المقاسات
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
+
+                      {/* Color Selection */}
+                      {((product.variants && product.variants.length > 0) || (product.colors && product.colors.length > 0)) && (
+                        <div className="flex flex-col gap-2">
+                          <span className="text-neutral-400 font-bold text-xs text-right w-full block">اختر اللون:</span>
+                          <div className="flex flex-wrap gap-3 justify-end">
+                            {(product.variants && product.variants.length > 0 
+                              ? product.variants.map(v => v.hex || v.color)
+                              : (product.colors || [])
+                            ).map((colorCode, cIdx) => (
+                              <button
+                                key={cIdx}
+                                type="button"
+                                onClick={() => updateSelection(idx, 'color', colorCode)}
+                                className={`w-10 h-10 rounded-full transition-all border-2 ${sel.color === colorCode
+                                    ? "border-white scale-110 shadow-[0_0_15px_rgba(255,255,255,0.6)]"
+                                    : "border-white/10 hover:border-white/50"
+                                  }`}
+                                style={{ backgroundColor: colorCode }}
+                                title={colorCode}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
 
-                {/* Color Selection */}
-                {product.colors && product.colors.length > 0 && (
-                  <div className="flex flex-col gap-4 mt-2">
-                    <span className="text-white font-bold text-sm text-right w-full block">اختر اللون:</span>
-                    <div className="flex flex-wrap gap-3 justify-end">
-                      {(product.variants && product.variants.length > 0 
-                        ? product.variants.filter(v => parseInt(v.stock || 0) > 0).map(v => v.color)
-                        : (product.colors || [])
-                      ).map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          onClick={() => setSelectedColor(color)}
-                          className={`w-10 h-10 rounded-full transition-all border-2 ${selectedColor === color
-                              ? "border-white scale-110 shadow-[0_0_15px_rgba(255,255,255,0.6)]"
-                              : "border-white/10 hover:border-white/50"
-                            }`}
-                          style={{ backgroundColor: color.toLowerCase() }}
-                          title={color}
-                        />
-                      ))}
-                    </div>
-
-                    {selectedColor && (
-                      <div className="flex flex-col items-center gap-3 mt-2 animate-fade-in">
-                        <span className="text-white font-bold text-sm">
-                          اللون المختار: اللون {selectedColor}
-                        </span>
-                        <div 
-                          className="w-16 h-16 rounded-full border-4 border-white shadow-[0_0_20px_rgba(255,255,255,0.4)] transition-all duration-500"
-                          style={{ backgroundColor: selectedColor.toLowerCase() }}
-                        />
-                      </div>
-                    )}
+                {/* Quantity Control Buttons */}
+                <div className="flex flex-col gap-3 mt-4">
+                  <span className="text-white font-bold text-sm text-right w-full block">إضافة قطعة أخرى:</span>
+                  <div className="flex items-center justify-end gap-4" dir="ltr">
+                    <button
+                      type="button"
+                      onClick={handleDecreaseQuantity}
+                      disabled={itemSelections.length <= 1}
+                      className="w-12 h-12 rounded-full bg-white/5 border border-white/10 text-white flex items-center justify-center hover:bg-[#38bdf8] hover:text-black hover:border-[#38bdf8] transition-all disabled:opacity-30 disabled:hover:bg-white/5 disabled:hover:text-white disabled:hover:border-white/10 disabled:cursor-not-allowed"
+                    >
+                      <Minus size={20} />
+                    </button>
+                    <span className="text-white font-extrabold text-2xl w-8 text-center">{itemSelections.length}</span>
+                    <button
+                      type="button"
+                      onClick={handleIncreaseQuantity}
+                      className="w-12 h-12 rounded-full bg-white/5 border border-white/10 text-white flex items-center justify-center hover:bg-[#38bdf8] hover:text-black hover:border-[#38bdf8] transition-all"
+                    >
+                      <Plus size={20} />
+                    </button>
                   </div>
-                )}
+                </div>
 
                 <div className="flex gap-4">
                   <div className="relative w-1/2">
@@ -520,8 +576,8 @@ ${itemsText}
                 <h3 className="text-white font-bold mb-4">ملخص الطلب</h3>
                 <div className="flex flex-col gap-3 font-medium text-neutral-300">
                   <div className="flex justify-between items-center">
-                    <span>سعر المنتج</span>
-                    <span className="font-bold text-white" dir="ltr">{priceValue} DA</span>
+                    <span>سعر المنتج ({quantity}x)</span>
+                    <span className="font-bold text-white" dir="ltr">{priceValue * quantity} DA</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span>سعر التوصيل</span>
@@ -540,7 +596,7 @@ ${itemsText}
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isSubmitting || !selectedSize}
+                disabled={isSubmitting || itemSelections.some(s => !s.size)}
                 className="w-full bg-[#38bdf8] text-[#0a0a0a] font-extrabold text-xl py-6 rounded-[2rem] hover:bg-[#7dd3fc] transition-all mt-4 disabled:opacity-50 disabled:cursor-not-allowed flex justify-between items-center px-8 shadow-[0_10px_20px_rgba(56,189,248,0.2)] hover:shadow-[0_15px_30px_rgba(56,189,248,0.4)] active:scale-95"
               >
                 {isSubmitting ? (

@@ -32,8 +32,8 @@ export default function Products() {
   };
 
   const addColor = () => {
-    if (newColorHex && newColorStock !== "") {
-      setColors([...colors, { hex: newColorHex, stock: parseInt(newColorStock) }]);
+    if (newColorHex) {
+      setColors([...colors, { hex: newColorHex, stock: parseInt(newColorStock) || 0 }]);
       setNewColorStock("");
     }
   };
