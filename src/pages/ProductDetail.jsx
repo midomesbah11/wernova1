@@ -161,49 +161,44 @@ export default function ProductDetail() {
 
       if (error) throw error;
 
-      // --- Send Telegram Notification via Secure API ---
+      // --- Send Telegram Notification ---
       try {
         const itemsText = orderData.items.map(item => 
-          `📦 *${item.name}*\n📏 الحجم: ${item.size}${item.color ? `\n🎨 اللون: ${item.color}` : ''}\n🔢 الكمية: ${item.quantity}\n💰 السعر: ${item.price} DA`
+          `📦 <b>${item.name}</b>\n📏 الحجم: ${item.size}${item.color ? `\n🎨 اللون: ${item.color}` : ''}\n🔢 الكمية: ${item.quantity}\n💰 السعر: ${item.price} DA`
         ).join('\n\n');
 
         const message = `
-🔔 *طلب جديد من Wernova! (شراء سريع)*
+🔔 <b>طلب جديد من Wernova! (شراء سريع)</b>
 
-👤 *العميل:* ${orderData.full_name}
-📞 *الهاتف:* \`${orderData.phone}\`
+👤 <b>العميل:</b> ${orderData.full_name}
+📞 <b>الهاتف:</b> <code>${orderData.phone}</code>
 
-📍 *العنوان:*
+📍 <b>العنوان:</b>
 - الولاية: ${orderData.wilaya}
 - البلدية: ${orderData.commune}
 - العنوان: ${orderData.address}
 - النوع: ${orderData.delivery_type === 'home' ? '🏠 للمنزل' : '🏢 للمكتب'}
 
-🛒 *المنتجات:*
+🛒 <b>المنتجات:</b>
 ${itemsText}
 
 ----------------------------
 🚚 التوصيل: ${orderData.shipping_fee} DA
-💵 *المجموع الكلي: ${orderData.total} DA*
+💵 <b>المجموع الكلي: ${orderData.total} DA</b>
 ----------------------------
         `;
 
         // Get image from the product
         const productImage = optimizeCloudinaryUrl(product.images?.[0] || product.image_url || product.img || null);
 
-        // Call our internal API
-        const apiResponse = await fetch('/api/telegram', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message, image_url: productImage })
-        });
-
-        if (!apiResponse.ok) {
-          const errorData = await apiResponse.json();
-          console.error("API Telegram Error:", errorData.error);
+        // Call direct Telegram API util
+        const { sendTelegramNotification } = await import('../utils/telegram.js');
+        const tgRes = await sendTelegramNotification(message, productImage);
+        if (!tgRes.ok) {
+          console.error("Telegram Error:", tgRes);
         }
       } catch (tgError) {
-        console.error("Telegram API Request Failed:", tgError);
+        console.error("Telegram Request Failed:", tgError);
       }
 
       setIsSuccess(true);
