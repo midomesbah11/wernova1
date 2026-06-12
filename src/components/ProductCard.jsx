@@ -8,12 +8,17 @@ export default function ProductCard({ product }) {
 
   const handleQuickAdd = (e) => {
     e.preventDefault();
-    const sizes = product.sizes_stock ? Object.keys(product.sizes_stock).filter(s => product.sizes_stock[s] > 0) : [];
-    if (sizes.length > 0) {
-      addToCart(product, sizes[0]); // quick add first available size
-    } else {
-      addToCart(product, "OS");
+    const sizes = product.sizes_stock ? Object.keys(product.sizes_stock).filter(s => parseInt(product.sizes_stock[s]) > 0) : [];
+    const sizeToUse = sizes.length > 0 ? sizes[0] : "OS";
+    
+    let colorToUse = "";
+    if (product.variants && product.variants.length > 0) {
+      colorToUse = product.variants[0].hex || product.variants[0].color;
+    } else if (product.colors && product.colors.length > 0) {
+      colorToUse = product.colors[0];
     }
+    
+    addToCart(product, sizeToUse, colorToUse);
   };
 
   const isSoldOut = product.stock === 0 || 

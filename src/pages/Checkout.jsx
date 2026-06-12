@@ -85,7 +85,7 @@ export default function Checkout() {
       // --- Send Telegram Notification via Secure API ---
       try {
         const itemsText = orderData.items.map(item => 
-          `📦 *${item.name}*\n📏 الحجم: ${item.size}\n🔢 الكمية: ${item.quantity}\n💰 السعر: ${item.price} DA`
+          `📦 *${item.name}*\n📏 الحجم: ${item.size}${item.color ? `\n🎨 اللون: ${item.color}` : ''}\n🔢 الكمية: ${item.quantity}\n💰 السعر: ${item.price} DA`
         ).join('\n\n');
 
         const message = `

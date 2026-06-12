@@ -70,6 +70,12 @@ export default function CartDrawer() {
                     </div>
                     <div className="dm-sans text-sm text-[#a0a0a0] mt-1 space-y-1">
                       <p>Size: <span className="text-white">{item.size}</span></p>
+                      {item.color && (
+                        <div className="flex items-center gap-2">
+                          <span>Color:</span>
+                          <div className="w-4 h-4 rounded-full border border-white/20" style={{ backgroundColor: item.color }}></div>
+                        </div>
+                      )}
                       <p>{item.price} DA</p>
                     </div>
                   </div>

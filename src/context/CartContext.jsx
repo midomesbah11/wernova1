@@ -13,17 +13,17 @@ export function CartProvider({ children }) {
     localStorage.setItem("wernova_cart", JSON.stringify(cartItems));
   }, [cartItems]);
 
-  const addToCart = (product, size) => {
+  const addToCart = (product, size, color = "") => {
     setCartItems(prev => {
-      const existing = prev.find(item => item.id === product.id && item.size === size);
+      const existing = prev.find(item => item.id === product.id && item.size === size && item.color === color);
       if (existing) {
         return prev.map(item =>
-          item.id === product.id && item.size === size
+          item.id === product.id && item.size === size && item.color === color
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      return [...prev, { ...product, size, quantity: 1, cartItemId: `${product.id}-${size}` }];
+      return [...prev, { ...product, size, color, quantity: 1, cartItemId: `${product.id}-${size}-${color}` }];
     });
     setIsDrawerOpen(true);
   };
